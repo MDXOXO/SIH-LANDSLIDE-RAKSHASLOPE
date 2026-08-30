@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 
 st.set_page_config(
-    page_title="NER Landslide Early Warning Prototype",
+    page_title="RakshaSlope | Landslide Early Warning",
     page_icon="⛰️",
     layout="wide"
 )
@@ -144,7 +144,6 @@ LOCAL_SMS_TEMPLATES = {
     "English": "WARNING: High landslide risk detected in {zone}. Avoid hill roads and move to a safe area if advised."
 }
 
-RISK_ORDER = ["Low", "Medium", "High", "Critical"]
 RISK_ICON = {
     "Low": "🟢",
     "Medium": "🟡",
@@ -153,17 +152,18 @@ RISK_ICON = {
 }
 
 # ------------------------------------------------------------
-# 4. UI
+# 4. RakshaSlope dashboard
 # ------------------------------------------------------------
-st.title("⛰️ NER Landslide Early Warning System")
-st.caption("Prototype — synthetic training data + simulated live telemetry")
+st.title("⛰️ RakshaSlope")
+st.subheader("AI-Based Landslide Early Warning & Risk Monitoring System")
+st.caption("Northeast India • AI Risk Assessment • Live Monitoring • Multilingual Alerts")
 
 st.warning(
-    "This is a demonstration prototype. The model is trained on synthetic data "
-    "and must NOT be used for real emergency decisions."
+    "Prototype Mode: This demonstration uses synthetic training data and simulated "
+    "telemetry. It is not intended for real-world emergency decision-making. "
+    "Production deployment would require validated historical landslide records and live data."
 )
 
-# Predict current zones
 feature_columns = [
     "rainfall_24h",
     "slope_angle",
@@ -173,9 +173,8 @@ feature_columns = [
 
 X_live = LIVE_ZONES[feature_columns]
 LIVE_ZONES["predicted_risk"] = model.predict(X_live)
-LIVE_ZONES["confidence"] = model.predict_proba(X_live).max(axis=1) * 100
+LIVE_ZONES["model_probability"] = model.predict_proba(X_live).max(axis=1) * 100
 
-# Top metrics
 critical_count = int((LIVE_ZONES["predicted_risk"] == "Critical").sum())
 high_count = int((LIVE_ZONES["predicted_risk"] == "High").sum())
 alert_count = critical_count + high_count
@@ -184,12 +183,11 @@ c1, c2, c3, c4 = st.columns(4)
 c1.metric("Monitored Zones", len(LIVE_ZONES))
 c2.metric("Critical Zones", critical_count)
 c3.metric("High-Risk Zones", high_count)
-c4.metric("Alerts Triggered", alert_count)
+c4.metric("Active Alerts", alert_count)
 
 st.divider()
 
-# Zone dashboard
-st.subheader("Live Zone Dashboard")
+st.subheader("📡 Live Zone Monitoring")
 
 display_df = LIVE_ZONES[
     [
@@ -199,7 +197,7 @@ display_df = LIVE_ZONES[
         "slope_angle",
         "elevation",
         "predicted_risk",
-        "confidence"
+        "model_probability"
     ]
 ].copy()
 
@@ -210,21 +208,20 @@ display_df.columns = [
     "Slope (°)",
     "Elevation (m)",
     "Risk Level",
-    "Confidence (%)"
+    "Model Probability (%)"
 ]
 
-display_df["Confidence (%)"] = display_df["Confidence (%)"].round(1)
+display_df["Model Probability (%)"] = display_df["Model Probability (%)"].round(1)
 
 st.dataframe(
     display_df,
-    use_container_width=True,
+    width="stretch",
     hide_index=True
 )
 
 st.divider()
 
-# Alerts
-st.subheader("🚨 Alert Simulation")
+st.subheader("🚨 Alert Centre")
 
 for _, row in LIVE_ZONES.iterrows():
     risk = row["predicted_risk"]
@@ -239,19 +236,14 @@ for _, row in LIVE_ZONES.iterrows():
             st.markdown(
                 f"### {RISK_ICON[risk]} {row['zone_name']} — {risk}"
             )
-            st.write(
-                f"**Simulated alert recipient:** District Authority / registered local users"
-            )
+            st.write("**Simulated alert recipient:** District Authority / registered local users")
             st.write(f"**Language:** {row['language']}")
             st.code(message)
+            st.info("Prototype only: no real SMS has been sent.")
 
-            st.info(
-                "Prototype only: no real SMS has been sent."
-            )
-
-# Manual prediction
 st.divider()
-st.subheader("🔎 Test a Zone")
+st.subheader("🧪 Risk Simulator")
+st.caption("Enter hypothetical conditions to test the prototype risk engine.")
 
 left, right = st.columns(2)
 
@@ -271,7 +263,7 @@ with right:
         }[x]
     )
 
-if st.button("Predict Risk", type="primary"):
+if st.button("Analyse Risk", type="primary"):
     test_data = pd.DataFrame([{
         "rainfall_24h": rainfall,
         "slope_angle": slope,
@@ -280,21 +272,24 @@ if st.button("Predict Risk", type="primary"):
     }])
 
     prediction = model.predict(test_data)[0]
-    confidence = model.predict_proba(test_data).max() * 100
+    probability = model.predict_proba(test_data).max() * 100
 
-    st.success(
-        f"{RISK_ICON[prediction]} Predicted Risk: **{prediction}** "
-        f"(model confidence: {confidence:.1f}%)"
-    )
+    if prediction == "Critical":
+        st.error(f"{RISK_ICON[prediction]} Predicted Risk: **{prediction}**")
+    elif prediction == "High":
+        st.warning(f"{RISK_ICON[prediction]} Predicted Risk: **{prediction}**")
+    elif prediction == "Medium":
+        st.info(f"{RISK_ICON[prediction]} Predicted Risk: **{prediction}**")
+    else:
+        st.success(f"{RISK_ICON[prediction]} Predicted Risk: **{prediction}**")
 
-# Model information
-with st.expander("Model & Prototype Details"):
-    st.write(f"**Algorithm:** Random Forest Classifier")
-    st.write(f"**Synthetic training samples:** 2,000")
+    st.metric("Model Probability", f"{probability:.1f}%")
+
+with st.expander("🧠 Model & Prototype Details"):
+    st.write("**Algorithm:** Random Forest Classifier")
+    st.write("**Synthetic training samples:** 2,000")
     st.write(f"**Hold-out test accuracy:** {accuracy * 100:.2f}%")
-    st.write(
-        "**Input features:** rainfall, slope angle, elevation and soil susceptibility."
-    )
+    st.write("**Input features:** rainfall, slope angle, elevation and soil susceptibility.")
     st.write(
         "**Important:** The labels are generated from a synthetic rule. "
         "The accuracy therefore measures how well the Random Forest learned "
@@ -302,8 +297,7 @@ with st.expander("Model & Prototype Details"):
     )
 
     report_df = pd.DataFrame(report).transpose().round(3)
-    st.dataframe(report_df, use_container_width=True)
+    st.dataframe(report_df, width="stretch")
 
-st.caption(
-    "NER Landslide Early Warning System — academic/SIH prototype"
-)
+st.divider()
+st.caption("RakshaSlope • Academic / SIH Prototype • Northeast India")
